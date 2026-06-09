@@ -2,69 +2,542 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>App Incidencias - Cendea de Galar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0C447C">
+    <meta name="description" content="App para recopilar incidencias con foto y ubicación">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Incidencias">
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Sistema%20de%20Incidencias%22,%22short_name%22:%22Incidencias%22,%22start_url%22:%22/app%22,%22display%22:%22standalone%22,%22background_color%22:%22#ffffff%22,%22theme_color%22:%22#0C447C%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%20192%20192%27%3E%3Crect%20fill=%27%23185FA5%27%20width=%27192%27%20height=%27192%27/%3E%3Ctext%20x=%2750%25%27%20y=%2750%25%27%20font-size=%2780%27%20fill=%27white%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%3E📋%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22}],%22scope%22:%22/app%22}">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>📋</text></svg>">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
-        .container { max-width: 800px; margin: 0 auto; background: white; min-height: 100vh; }
-        .tabs { display: flex; border-bottom: 2px solid #ddd; }
-        .tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; border: none; background: white; font-size: 14px; font-weight: 500; }
-        .tab.active { background: #0066cc; color: white; }
-        .content { padding: 1rem; }
-        button { padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
-        .btn-primary { background: #0066cc; color: white; }
-        .btn-success { background: #28a745; color: white; flex: 1; }
-        .btn-danger { background: #dc3545; color: white; flex: 1; }
-        .button-group { display: flex; gap: 10px; margin-bottom: 1rem; }
+        html { background: #0C447C; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; }
+        .app { max-width: 500px; margin: 0 auto; background: #fff; min-height: 100vh; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        
+        header { background: linear-gradient(135deg, #185FA5 0%, #0C447C 100%); color: white; padding: 1.5rem 1rem; text-align: center; }
+        header h1 { font-size: 22px; font-weight: 500; margin-bottom: 0.25rem; }
+        header p { font-size: 12px; opacity: 0.9; }
+        
+        .sync-status { position: absolute; top: 12px; right: 12px; font-size: 11px; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.2); color: white; }
+        .sync-status.online { background: #28a745; }
+        .sync-status.offline { background: #dc3545; }
+        .sync-status.syncing { background: #ffc107; }
+        
+        .tabs { display: flex; border-bottom: 1px solid #e0e0e0; background: white; }
+        .tab { flex: 1; padding: 12px; text-align: center; cursor: pointer; border-bottom: 3px solid transparent; font-size: 13px; color: #666; font-weight: 500; transition: all 0.2s; }
+        .tab.active { color: #185FA5; border-bottom-color: #185FA5; }
+        .tab-count { font-size: 11px; opacity: 0.7; margin-left: 4px; }
+        
+        .content { flex: 1; overflow-y: auto; padding: 1rem; -webkit-overflow-scrolling: touch; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #333; }
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group textarea,
+        .form-group select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; background: white; color: #333; }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus { outline: none; border-color: #185FA5; box-shadow: 0 0 0 3px rgba(24, 95, 165, 0.1); }
+        
+        .photo-preview { margin-top: 8px; max-width: 100%; border-radius: 6px; max-height: 250px; object-fit: cover; border: 1px solid #ddd; }
+        .photo-button { background: #f5f5f5; border: 1px solid #ddd; padding: 12px; border-radius: 6px; cursor: pointer; text-align: center; font-size: 14px; color: #333; transition: all 0.2s; }
+        .photo-button:active { background: #e8e8e8; }
+        input[type="file"] { display: none; }
+        
+        .rating-group { display: flex; gap: 8px; }
+        .rating-btn { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; text-align: center; font-size: 12px; transition: all 0.2s; background: white; font-weight: 500; }
+        .rating-btn.selected { background: #185FA5; color: white; border-color: #185FA5; }
+        
+        .submit-btn { width: 100%; padding: 12px; background: #185FA5; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .submit-btn:active { opacity: 0.9; }
+        .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .incident-card { background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+        .incident-card:active { background: #f0f0f0; }
+        .incident-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px; }
+        .incident-date { font-size: 12px; color: #666; }
+        .incident-photo { width: 60px; height: 60px; border-radius: 6px; object-fit: cover; border: 1px solid #ddd; }
+        .incident-urgency { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+        .incident-urgency.baja { background: #d4edda; color: #155724; }
+        .incident-urgency.media { background: #fff3cd; color: #856404; }
+        .incident-urgency.alta { background: #f8d7da; color: #721c24; }
+        .incident-execution { margin-top: 8px; padding: 8px; background: white; border-radius: 6px; font-size: 12px; border-left: 3px solid #185FA5; }
+        .location { display: flex; gap: 6px; align-items: center; font-size: 12px; color: #666; margin-top: 8px; }
+        
+        .synced-badge { display: inline-block; margin-left: 6px; font-size: 10px; padding: 2px 6px; background: #d4edda; color: #155724; border-radius: 3px; }
+        .pending-badge { display: inline-block; margin-left: 6px; font-size: 10px; padding: 2px 6px; background: #fff3cd; color: #856404; border-radius: 3px; }
+        
+        .empty-state { text-align: center; padding: 3rem 1rem; color: #999; }
+        .empty-state-icon { font-size: 48px; margin-bottom: 1rem; }
+        
+        .alert { padding: 12px; border-radius: 6px; margin-bottom: 1rem; font-size: 13px; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-warning { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .button-group { display: flex; gap: 8px; }
+        .button-group button { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 12px; font-weight: 500; }
+        .button-group button.primary { background: #185FA5; color: white; border-color: #185FA5; }
+        
+        footer { padding: 1rem; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #e0e0e0; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="tabs">
-            <div class="tab active" onclick="switchTab('capture')">Capturar</div>
-            <div class="tab" onclick="switchTab('dashboard')">Mis reportes</div>
+<div class="app">
+    <header>
+        <h1>📋 Incidencias</h1>
+        <p>Inspección de campo</p>
+        <div class="sync-status offline" id="syncStatus">Offline</div>
+    </header>
+    
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('capture')">Capturar</div>
+        <div class="tab" onclick="switchTab('dashboard')">Mis reportes <span class="tab-count" id="dashboardCount">(0)</span></div>
+    </div>
+    
+    <div id="sync-bar" style="background: #fff3cd; padding: 8px 12px; text-align: center; font-size: 12px; border-bottom: 1px solid #ffc107;">
+        <span id="sync-message">📡 Estado: <strong>Conectado</strong></span>
+        <button id="sync-btn" onclick="syncPendingIncidents()" style="margin-left: 8px; padding: 4px 8px; background: #ffc107; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500; display: none;">🔄 Sincronizar ahora</button>
+    </div>
+    
+    <div class="content">
+        <!-- CAPTURA -->
+        <div id="capture" style="display: block;">
+            <div id="alert-capture" class="alert" style="display: none;"></div>
+            
+            <form id="incident-form" onsubmit="saveIncident(event)">
+                <div class="form-group">
+                    <label>Foto de la incidencia *</label>
+                    <div class="photo-button" onclick="document.getElementById('photo-input').click()">
+                        📷 Tomar foto o seleccionar
+                    </div>
+                    <input type="file" id="photo-input" accept="image/*" capture="environment" onchange="handlePhotoChange(event)">
+                    <img id="photo-preview" class="photo-preview" style="display: none;">
+                </div>
+                
+                <div class="form-group">
+                    <label>Ubicación *</label>
+                    <button type="button" id="location-btn" onclick="getLocation()" style="width: 100%; padding: 10px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">📍 Obtener ubicación GPS</button>
+                    <div id="location-display" style="margin-top: 8px; font-size: 12px; color: #666; display: none;"></div>
+                    
+                    <div id="manual-location" style="display: none; margin-top: 12px; padding: 12px; background: #fff3cd; border-radius: 6px; border: 1px solid #ffc107;">
+                        <p style="font-size: 12px; margin: 0 0 10px; color: #856404;">⚠️ GPS no disponible. Ingresa las coordenadas manualmente:</p>
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <input type="number" id="latitude-manual" placeholder="Latitud" step="0.0001" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
+                            <input type="number" id="longitude-manual" placeholder="Longitud" step="0.0001" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
+                        </div>
+                        <button type="button" onclick="useManualLocation()" style="width: 100%; padding: 8px; background: #ffc107; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;">✓ Usar estas coordenadas</button>
+                    </div>
+                    
+                    <input type="hidden" id="latitude">
+                    <input type="hidden" id="longitude">
+                </div>
+                
+                <div class="form-group">
+                    <label>Observaciones</label>
+                    <textarea id="observations" placeholder="Describa los detalles de la incidencia..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Urgencia *</label>
+                    <div class="rating-group">
+                        <button type="button" class="rating-btn" onclick="setUrgency('baja')">Baja</button>
+                        <button type="button" class="rating-btn" onclick="setUrgency('media')">Media</button>
+                        <button type="button" class="rating-btn" onclick="setUrgency('alta')">Alta</button>
+                    </div>
+                    <input type="hidden" id="urgency" value="">
+                </div>
+                
+                <div class="form-group">
+                    <label>Estado de ejecución *</label>
+                    <select id="execution" required>
+                        <option value="">Seleccionar estado...</option>
+                        <option value="pendiente">Pendiente</option>
+                        <option value="en_progreso">En progreso</option>
+                        <option value="completada">Completada</option>
+                        <option value="rechazada">Rechazada</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="submit-btn">✓ Guardar incidencia</button>
+            </form>
         </div>
-
-        <div class="content">
-            <!-- CAPTURA -->
-            <div id="capture">
-                <h2>Capturar Incidencia</h2>
-                <p>Aquí va el formulario de captura...</p>
+        
+        <!-- DASHBOARD -->
+        <div id="dashboard" style="display: none;">
+            <div id="alert-dashboard" class="alert" style="display: none;"></div>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 1rem; padding: 0 1rem;">
+                <button onclick="exportBackup()" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px;">
+                    💾 Backup
+                </button>
+                <button onclick="clearAppCache()" style="flex: 1; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px;">
+                    🗑️ Limpiar
+                </button>
             </div>
-
-            <!-- MIS REPORTES -->
-            <div id="dashboard" style="display: none;">
-                <h2>Mis Reportes</h2>
-                <div class="button-group">
-                    <button class="btn-success" onclick="exportBackup()">💾 Backup</button>
-                    <button class="btn-danger" onclick="clearAppCache()">🗑️ Limpiar</button>
-                </div>
-                <div id="incidents-list">
-                    <p>Cargando incidencias...</p>
-                </div>
-            </div>
+            
+            <div id="incidents-list"></div>
         </div>
     </div>
+    
+    <footer>
+        <p>v1.0 - Sincronización: <span id="footer-sync">conectando...</span></p>
+    </footer>
+</div>
 
-    <script>
-        function switchTab(tab) {
-            document.querySelectorAll('.content > div').forEach(el => el.style.display = 'none');
-            document.getElementById(tab).style.display = 'block';
-            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-            event.target.classList.add('active');
+<script>
+    // Service Worker para offline
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('data:application/javascript,self.addEventListener("install",e=>self.skipWaiting());self.addEventListener("activate",e=>self.clients.claim());');
+    }
+    
+    const API_BASE = window.location.origin + '/api';
+    let db;
+    let currentUrgency = '';
+    let allIncidents = [];
+    let isOnline = navigator.onLine;
+    
+    // Detectar conexión
+    window.addEventListener('online', () => { isOnline = true; updateSyncStatus(); syncPendingIncidents(); });
+    window.addEventListener('offline', () => { isOnline = false; updateSyncStatus(); });
+    
+    // Inicializar IndexedDB
+    const dbRequest = indexedDB.open('IncidenciasDB', 1);
+    dbRequest.onerror = () => console.error('DB error');
+    dbRequest.onsuccess = (e) => {
+        db = e.target.result;
+        loadIncidents();
+        updateSyncStatus();
+        if (isOnline) syncPendingIncidents();
+    };
+    dbRequest.onupgradeneeded = (e) => {
+        const database = e.target.result;
+        if (!database.objectStoreNames.contains('incidents')) {
+            const store = database.createObjectStore('incidents', { keyPath: 'localId', autoIncrement: true });
+            store.createIndex('serverId', 'serverId', { unique: false });
+            store.createIndex('synced', 'synced', { unique: false });
         }
-
-        function exportBackup() {
-            alert('✓ Backup descargado');
+    };
+    
+    function switchTab(tab) {
+        document.getElementById('capture').style.display = tab === 'capture' ? 'block' : 'none';
+        document.getElementById('dashboard').style.display = tab === 'dashboard' ? 'block' : 'none';
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        event.target.closest('.tab').classList.add('active');
+        if (tab === 'dashboard') loadIncidents();
+    }
+    
+    function setUrgency(level) {
+        currentUrgency = level;
+        document.getElementById('urgency').value = level;
+        document.querySelectorAll('.rating-btn').forEach(btn => btn.classList.remove('selected'));
+        event.target.classList.add('selected');
+    }
+    
+    function handlePhotoChange(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                document.getElementById('photo-preview').src = event.target.result;
+                document.getElementById('photo-preview').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
         }
-
-        function clearAppCache() {
-            if (confirm('¿Limpiar caché?')) {
-                alert('✓ Caché limpiado');
-                location.reload();
+    }
+    
+    function getLocation() {
+        const btn = document.getElementById('location-btn');
+        btn.textContent = '⏳ Obteniendo ubicación...';
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude.toFixed(6);
+                    const lng = position.coords.longitude.toFixed(6);
+                    document.getElementById('latitude').value = lat;
+                    document.getElementById('longitude').value = lng;
+                    document.getElementById('location-display').textContent = `📍 ${lat}, ${lng}`;
+                    document.getElementById('location-display').style.display = 'block';
+                    document.getElementById('manual-location').style.display = 'none';
+                    btn.textContent = '✓ Ubicación obtenida';
+                    btn.style.background = '#d4edda';
+                },
+                (error) => {
+                    btn.textContent = '✗ Ingresa manualmente';
+                    btn.style.background = '#f8d7da';
+                    document.getElementById('manual-location').style.display = 'block';
+                    showAlert('No se pudo obtener GPS. Ingresa las coordenadas manualmente.', 'warning', 'capture');
+                }
+            );
+        } else {
+            btn.textContent = '✗ Geolocalización no disponible';
+            btn.style.background = '#f8d7da';
+            document.getElementById('manual-location').style.display = 'block';
+        }
+    }
+    
+    function useManualLocation() {
+        const lat = document.getElementById('latitude-manual').value;
+        const lng = document.getElementById('longitude-manual').value;
+        
+        if (!lat || !lng) {
+            showAlert('Completa latitud y longitud', 'error', 'capture');
+            return;
+        }
+        
+        document.getElementById('latitude').value = lat;
+        document.getElementById('longitude').value = lng;
+        document.getElementById('location-display').textContent = `📍 ${lat}, ${lng}`;
+        document.getElementById('location-display').style.display = 'block';
+        document.getElementById('manual-location').style.display = 'none';
+        document.getElementById('location-btn').textContent = '✓ Ubicación ingresada';
+        document.getElementById('location-btn').style.background = '#d4edda';
+        showAlert('✓ Ubicación guardada', 'success', 'capture');
+    }
+    
+    function saveIncident(e) {
+        e.preventDefault();
+        if (!document.getElementById('photo-preview').src || !document.getElementById('latitude').value || !document.getElementById('urgency').value || !document.getElementById('execution').value) {
+            showAlert('Completa todos los campos requeridos (*)', 'error', 'capture');
+            return;
+        }
+        
+        const incident = {
+            date: new Date().toISOString(),
+            photo: document.getElementById('photo-preview').src,
+            latitude: parseFloat(document.getElementById('latitude').value),
+            longitude: parseFloat(document.getElementById('longitude').value),
+            observations: document.getElementById('observations').value,
+            urgency: document.getElementById('urgency').value,
+            execution: document.getElementById('execution').value,
+            synced: isOnline,
+            serverId: null
+        };
+        
+        // Guardar en IndexedDB
+        const transaction = db.transaction(['incidents'], 'readwrite');
+        const store = transaction.objectStore('incidents');
+        const addRequest = store.add(incident);
+        
+        addRequest.onsuccess = () => {
+            const localId = addRequest.result;
+            incident.localId = localId;
+            
+            // Intentar sincronizar SIEMPRE
+            syncIncident(incident);
+            
+            showAlert('✓ Incidencia guardada', 'success', 'capture');
+            document.getElementById('incident-form').reset();
+            document.getElementById('photo-preview').style.display = 'none';
+            document.getElementById('location-display').style.display = 'none';
+            document.querySelectorAll('.rating-btn').forEach(btn => btn.classList.remove('selected'));
+            document.getElementById('location-btn').textContent = '📍 Obtener ubicación GPS';
+            document.getElementById('location-btn').style.background = '#f5f5f5';
+            currentUrgency = '';
+            
+            loadIncidents();
+        };
+    }
+    
+    function syncIncident(incident) {
+        console.log('🔄 Intentando sincronizar:', incident);
+        
+        fetch(`${API_BASE}/incidents`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(incident)
+        })
+        .then(r => {
+            console.log('Respuesta status:', r.status);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        })
+        .then(serverIncident => {
+            console.log('✓ Sincronizado en servidor:', serverIncident);
+            if (incident.localId) {
+                const transaction = db.transaction(['incidents'], 'readwrite');
+                const store = transaction.objectStore('incidents');
+                const getRequest = store.get(incident.localId);
+                getRequest.onsuccess = () => {
+                    const updated = getRequest.result;
+                    updated.synced = true;
+                    updated.serverId = serverIncident.id;
+                    store.put(updated);
+                    loadIncidents();
+                    updateSyncStatus();
+                };
             }
+            showAlert('✓ Sincronizado correctamente', 'success', 'dashboard');
+        })
+        .catch(err => {
+            console.error('❌ Error sincronización:', err);
+            showAlert('❌ Error al sincronizar: ' + err.message, 'error', 'dashboard');
+            updateSyncStatus();
+        });
+    }
+    
+    function syncPendingIncidents() {
+        const transaction = db.transaction(['incidents'], 'readonly');
+        const store = transaction.objectStore('incidents');
+        const index = store.index('synced');
+        const request = index.getAll(false);
+        
+        request.onsuccess = () => {
+            const pending = request.result;
+            if (pending.length === 0) {
+                showAlert('✓ Todo está sincronizado', 'success', 'dashboard');
+                return;
+            }
+            
+            showAlert(`⏳ Sincronizando ${pending.length} incidencias...`, 'warning', 'dashboard');
+            pending.forEach(incident => syncIncident(incident));
+        };
+    }
+    
+    function loadIncidents() {
+        const transaction = db.transaction(['incidents'], 'readonly');
+        const store = transaction.objectStore('incidents');
+        const request = store.getAll();
+        
+        request.onsuccess = () => {
+            allIncidents = request.result.reverse();
+            document.getElementById('dashboardCount').textContent = `(${allIncidents.length})`;
+            renderDashboard();
+        };
+    }
+    
+    function renderDashboard() {
+        const list = document.getElementById('incidents-list');
+        if (allIncidents.length === 0) {
+            list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>No hay incidencias guardadas</p></div>';
+            return;
         }
-    </script>
+        
+        const pending = allIncidents.filter(i => !i.synced).length;
+        
+        let html = '';
+        if (pending > 0) {
+            html += `
+                <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin-bottom: 1rem; border: 1px solid #ffc107;">
+                    <p style="font-size: 13px; margin: 0 0 10px; color: #856404;">⏳ Tienes ${pending} incidencia(s) pendiente(s) de sincronizar</p>
+                    <button onclick="syncPendingIncidents()" style="width: 100%; padding: 10px; background: #ffc107; color: #333; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px;">🔄 Sincronizar ahora</button>
+                </div>
+            `;
+        } else {
+            html += `
+                <div style="background: #d4edda; padding: 12px; border-radius: 6px; margin-bottom: 1rem; border: 1px solid #28a745;">
+                    <p style="font-size: 13px; margin: 0; color: #155724;">✓ Todo está sincronizado</p>
+                </div>
+            `;
+        }
+        
+        html += allIncidents.map(incident => {
+            const date = new Date(incident.date).toLocaleDateString('es-ES') + ' ' + new Date(incident.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            const urgencyLabels = { baja: 'Baja', media: 'Media', alta: 'Alta' };
+            const executionLabels = { pendiente: 'Pendiente', en_progreso: 'En progreso', completada: 'Completada', rechazada: 'Rechazada' };
+            
+            return `
+                <div class="incident-card">
+                    <div class="incident-header">
+                        <div>
+                            <div class="incident-date">${date}${incident.synced ? '<span class="synced-badge">✓ Sincronizado</span>' : '<span class="pending-badge">⏳ Pendiente</span>'}</div>
+                            <img src="${incident.photo}" class="incident-photo" style="margin-top: 8px;">
+                        </div>
+                        <div class="incident-urgency ${incident.urgency}">${urgencyLabels[incident.urgency]}</div>
+                    </div>
+                    ${incident.observations ? `<p style="font-size: 13px; margin: 8px 0; color: #333;">${incident.observations}</p>` : ''}
+                    <div class="location">📍 ${incident.latitude.toFixed(4)}, ${incident.longitude.toFixed(4)}</div>
+                    <div class="incident-execution">
+                        <strong>Estado:</strong> ${executionLabels[incident.execution]}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        list.innerHTML = html;
+    }
+    
+    function showAlert(message, type = 'success', tab = 'capture') {
+        const alertId = `alert-${tab}`;
+        const alert = document.getElementById(alertId);
+        if (alert) {
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+            setTimeout(() => alert.style.display = 'none', 3000);
+        }
+    }
+    
+    function updateSyncStatus() {
+        const status = document.getElementById('syncStatus');
+        const footer = document.getElementById('footer-sync');
+        
+        if (!isOnline) {
+            status.className = 'sync-status offline';
+            status.textContent = 'Offline';
+            footer.textContent = '📴 Sin conexión';
+        } else {
+            status.className = 'sync-status online';
+            status.textContent = 'Online';
+            footer.textContent = '🟢 Conectado';
+        }
+    }
+</script>
 </body>
 </html>
+
+    <script>
+    // Función de exportar backup
+    function exportBackup() {
+        const transaction = db.transaction(['incidents'], 'readonly');
+        const store = transaction.objectStore('incidents');
+        const request = store.getAll();
+        
+        request.onsuccess = () => {
+            const incidents = request.result;
+            const backup = {
+                fecha: new Date().toISOString(),
+                cantidad: incidents.length,
+                incidencias: incidents
+            };
+            
+            const json = JSON.stringify(backup, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `backup-incidencias-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showAlert(`✓ Backup descargado: ${incidents.length} incidencias`, 'success', 'capture');
+        };
+    }
+    
+    // Función para limpiar caché
+    function clearAppCache() {
+        if (confirm('⚠️ ¿Estás seguro? Se borrarán los datos locales pero los sincronizados quedarán en el servidor.')) {
+            // Limpiar IndexedDB
+            indexedDB.deleteDatabase('IncidenciasDB');
+            
+            // Limpiar localStorage
+            localStorage.clear();
+            
+            // Limpiar Service Worker cache si existe
+            if ('caches' in window) {
+                caches.keys().then(cacheNames => {
+                    cacheNames.forEach(cacheName => caches.delete(cacheName));
+                });
+            }
+            
+            showAlert('✓ Caché limpiado. Recargando...', 'success', 'dashboard');
+            setTimeout(() => location.reload(), 1000);
+        }
+    }
+    </script>
