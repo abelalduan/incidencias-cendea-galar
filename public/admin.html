@@ -331,6 +331,7 @@
                         </td>
                         <td class="editable" onclick="startEditField(${incident.id}, 'location')" title="Click para editar"><small>📍 ${incident.latitude.toFixed(4)}<br>${incident.longitude.toFixed(4)}</small></td>
                         <td>
+                            <button style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px;" onclick="openMaps(${incident.latitude}, ${incident.longitude})">🗺️ Llegar</button>
                             <button style="padding: 4px 8px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;" onclick="deleteIncident(${incident.id})">🗑️ Eliminar</button>
                         </td>
                     </tr>
@@ -361,6 +362,11 @@
         
         function closePhotoModal() {
             document.getElementById('photoModal').classList.remove('active');
+        }
+        
+        function openMaps(lat, lng) {
+            const url = `https://maps.google.com/?q=${lat},${lng}`;
+            window.open(url, '_blank');
         }
         
         function startEditField(id, field) {
