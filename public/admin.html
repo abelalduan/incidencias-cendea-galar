@@ -332,6 +332,7 @@
                         <td class="editable" onclick="startEditField(${incident.id}, 'location')" title="Click para editar"><small>📍 ${incident.latitude.toFixed(4)}<br>${incident.longitude.toFixed(4)}</small></td>
                         <td>
                             <button style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px;" onclick="openMaps(${incident.latitude}, ${incident.longitude})">🗺️ Llegar</button>
+                            <button style="padding: 4px 8px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px;" onclick="shareIncidentWeb(${incident.id})">📤 Compartir</button>
                             <button style="padding: 4px 8px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;" onclick="deleteIncident(${incident.id})">🗑️ Eliminar</button>
                         </td>
                     </tr>
@@ -450,6 +451,19 @@
                 showAlert('✓ Incidencia actualizada correctamente');
             })
             .catch(err => showAlert('Error: ' + err.message, 'error'));
+        }
+        
+        function shareIncidentWeb(id) {
+            const incident = allIncidents.find(i => i.id === id);
+            if (!incident) return;
+            
+            const text = `📋 Incidencia #${incident.id}\n📍 Ubicación: ${incident.latitude.toFixed(4)}, ${incident.longitude.toFixed(4)}\n🗺️ https://maps.google.com/?q=${incident.latitude},${incident.longitude}\n📝 Descripción: ${incident.observations || 'Sin descripción'}\n⚠️ Urgencia: ${incident.urgency}\n✅ Estado: ${incident.execution}`;
+            
+            if (navigator.share) {
+                navigator.share({ title: `Incidencia #${incident.id}`, text: text }).catch(err => console.error('Error:', err));
+            } else {
+                navigator.clipboard.writeText(text).then(() => alert('✓ Incidencia copiada'));
+            }
         }
         
         function deleteIncident(id) {
