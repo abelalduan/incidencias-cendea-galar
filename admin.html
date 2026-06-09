@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incidencias Cendea de Galar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: #f5f7fa; color: #333; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        header { background: linear-gradient(135deg, #185FA5 0%, #0C447C 100%); color: white; padding: 2rem 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        header h1 { font-size: 28px; font-weight: 500; margin-bottom: 0.5rem; }
+        header p { font-size: 14px; opacity: 0.9; }
+        
+        .toolbar { display: flex; gap: 1rem; padding: 1.5rem; background: white; margin: 1.5rem 1rem 0; border-radius: 8px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .toolbar input, .toolbar select, .toolbar button { padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; }
+        .toolbar input { flex: 1; min-width: 200px; }
+        .toolbar button { cursor: pointer; background: #185FA5; color: white; border: none; font-weight: 500; transition: all 0.2s; }
+        .toolbar button:hover { background: #0C447C; }
+        .toolbar button.secondary { background: #f0f0f0; color: #333; }
+        .toolbar button.secondary:hover { background: #e0e0e0; }
+        .toolbar .btn-group { display: flex; gap: 6px; }
+        
+        .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; padding: 1.5rem 1rem; }
+        @media (max-width: 1200px) { .layout { grid-template-columns: 1fr; } }
+        
+        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+        .card-header { background: #f8f9fa; padding: 1rem 1.25rem; border-bottom: 1px solid #e9ecef; font-weight: 500; }
+        .card-body { padding: 1.25rem; }
+        
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .stat { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .stat-number { font-size: 32px; font-weight: 600; color: #185FA5; }
+        .stat-label { font-size: 12px; color: #666; margin-top: 0.5rem; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: #f8f9fa; }
+        th { padding: 12px; text-align: left; font-size: 12px; font-weight: 600; color: #666; border-bottom: 1px solid #e9ecef; }
+        td { padding: 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        tbody tr:hover { background: #f8f9fa; }
+        
+        .urgency-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+        .urgency-baja { background: #d4edda; color: #155724; }
+        .urgency-media { background: #fff3cd; color: #856404; }
+        .urgency-alta { background: #f8d7da; color: #721c24; }
+        
+        .execution-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+        .execution-pendiente { background: #d1ecf1; color: #0c5460; }
+        .execution-en_progreso { background: #cfe2ff; color: #084298; }
+        .execution-completada { background: #d1e7dd; color: #0f5132; }
+        .execution-rechazada { background: #f8d7da; color: #842029; }
+        
+        .editable { cursor: pointer; padding: 6px 8px; border-radius: 4px; }
+        .editable:hover { background: #e7f3ff; }
+        .editable.editing { padding: 0; }
+        .editable input, .editable select { width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+        
+        #map { height: 500px; border-radius: 8px; }
+        
+        .photo-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+        .photo-modal.active { display: flex; }
+        .photo-modal img { max-width: 90%; max-height: 90%; border-radius: 8px; }
+        .modal-close { position: absolute; top: 20px; right: 30px; font-size: 28px; cursor: pointer; color: white; }
+        
+        .loading { text-align: center; padding: 2rem; color: #666; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #185FA5; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .alert { padding: 12px; border-radius: 6px; margin-bottom: 1rem; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #e9ecef; }
+        .tab { padding: 1rem; cursor: pointer; border-bottom: 2px solid transparent; color: #666; font-weight: 500; transition: all 0.2s; }
+        .tab.active { color: #185FA5; border-bottom-color: #185FA5; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1001; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 2rem; border-radius: 8px; max-width: 600px; width: 90%; }
+        .modal-header { font-size: 20px; font-weight: 600; margin-bottom: 1rem; }
+        .modal-body { margin-bottom: 1.5rem; }
+        .modal-buttons { display: flex; gap: 1rem; justify-content: flex-end; }
+        .modal-buttons button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        .modal-buttons .btn-primary { background: #185FA5; color: white; }
+        .modal-buttons .btn-secondary { background: #f0f0f0; color: #333; }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="escudo-logo.webp" alt="Logo Cendea de Galar" style="width: 50px; height: 50px; object-fit: contain;">
+            <div>
+                <h1>Incidencias Cendea de Galar</h1>
+                <p style="margin: 0; font-size: 13px; color: #999;">Gestión de incidencias en campo</p>
+            </div>
+        </div>
+    </header>
+    
+    <div class="container">
+        <!-- ALERTA -->
+        <div id="alert" class="alert" style="margin: 1rem; display: none;"></div>
+        
+        <!-- ESTADÍSTICAS -->
+        <div class="stats" style="margin: 1.5rem 1rem 0;">
+            <div class="stat">
+                <div class="stat-number" id="stat-total">0</div>
+                <div class="stat-label">Total de incidencias</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number" id="stat-alta">0</div>
+                <div class="stat-label">Urgencia Alta</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number" id="stat-pendiente">0</div>
+                <div class="stat-label">Pendientes</div>
+            </div>
+            <div class="stat">
+                <div class="stat-number" id="stat-completada">0</div>
+                <div class="stat-label">Completadas</div>
+            </div>
+        </div>
+        
+        <!-- TABS -->
+        <div style="padding: 0 1rem;">
+            <div class="tabs">
+                <div class="tab active" onclick="switchView('table')">📋 Tabla</div>
+                <div class="tab" onclick="switchView('map')">🗺️ Mapa</div>
+            </div>
+        </div>
+        
+        <!-- TOOLBAR -->
+        <div class="toolbar">
+            <input type="text" id="search" placeholder="🔍 Buscar en observaciones..." onkeyup="filterData()">
+            <select id="filter-urgency" onchange="filterData()">
+                <option value="">Urgencia: Todas</option>
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+            </select>
+            <select id="filter-execution" onchange="filterData()">
+                <option value="">Estado: Todos</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="en_progreso">En progreso</option>
+                <option value="completada">Completada</option>
+                <option value="rechazada">Rechazada</option>
+            </select>
+            <div class="btn-group">
+                <button class="secondary" onclick="exportCSV()">📥 CSV</button>
+                <button class="secondary" onclick="exportPDF()">📄 PDF</button>
+                <button class="secondary" onclick="exportBackupServer()">💾 Backup</button>
+                <button class="secondary" onclick="loadBackupServer()">📂 Cargar</button>
+                <button onclick="refreshData()">🔄 Actualizar</button>
+            </div>
+        </div>
+        
+        <!-- CONTENIDO PRINCIPAL -->
+        <div class="layout">
+            <!-- TABLA -->
+            <div id="table-view" class="card" style="grid-column: 1 / -1;">
+                <div class="card-header">Incidencias registradas</div>
+                <div class="card-body">
+                    <div id="loading" class="loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 1rem;">Cargando incidencias...</p>
+                    </div>
+                    <div id="table-container" style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fecha</th>
+                                    <th>Foto</th>
+                                    <th>Observaciones</th>
+                                    <th>Urgencia</th>
+                                    <th>Estado</th>
+                                    <th>Ubicación</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="incidents-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- MAPA -->
+            <div id="map-view" class="card" style="grid-column: 1 / -1; display: none;">
+                <div class="card-header">Mapa de incidencias</div>
+                <div class="card-body">
+                    <div id="map"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL FOTO -->
+    <div class="photo-modal" id="photoModal" onclick="closePhotoModal()">
+        <div onclick="event.stopPropagation()">
+            <span class="modal-close" onclick="closePhotoModal()">&times;</span>
+            <img id="modalPhoto" src="">
+        </div>
+    </div>
+    
+    <!-- MODAL EDITAR UBICACIÓN -->
+    <div class="modal" id="locationModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">Editar ubicación 📍</div>
+            <div class="modal-body">
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 13px; color: #333; font-weight: 500; margin-bottom: 0.5rem;">Latitud</label>
+                    <input type="number" id="locationLatitude" step="0.0001" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 13px; color: #333; font-weight: 500; margin-bottom: 0.5rem;">Longitud</label>
+                    <input type="number" id="locationLongitude" step="0.0001" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="closeLocationModal()">Cancelar</button>
+                <button class="btn-primary" onclick="saveLocationEdit()">Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL EDITAR COMPLETA -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">Editar incidencia</div>
+            <div class="modal-body">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 12px; color: #666; margin-bottom: 0.5rem;">Observaciones</label>
+                    <textarea id="editObservations" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-height: 100px;"></textarea>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 12px; color: #666; margin-bottom: 0.5rem;">Urgencia</label>
+                    <select id="editUrgency" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                        <option value="baja">Baja</option>
+                        <option value="media">Media</option>
+                        <option value="alta">Alta</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 12px; color: #666; margin-bottom: 0.5rem;">Estado de ejecución</label>
+                    <select id="editExecution" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                        <option value="pendiente">Pendiente</option>
+                        <option value="en_progreso">En progreso</option>
+                        <option value="completada">Completada</option>
+                        <option value="rechazada">Rechazada</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                <button class="btn-primary" onclick="saveEdit()">Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        let allIncidents = [];
+        let filteredIncidents = [];
+        let map = null;
+        let markers = {};
+        let currentEditId = null;
+        
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            initMap();
+        });
+        
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+            setTimeout(() => alert.style.display = 'none', 3000);
+        }
+        
+        function loadData() {
+            document.getElementById('loading').style.display = 'block';
+            fetch(`${API_BASE}/incidents`)
+                .then(r => r.json())
+                .then(data => {
+                    allIncidents = data;
+                    filteredIncidents = data;
+                    document.getElementById('loading').style.display = 'none';
+                    renderTable();
+                    loadStats();
+                    updateMap();
+                })
+                .catch(err => {
+                    showAlert('Error al cargar datos: ' + err.message, 'error');
+                    document.getElementById('loading').style.display = 'none';
+                });
+        }
+        
+        function loadStats() {
+            fetch(`${API_BASE}/stats`)
+                .then(r => r.json())
+                .then(stats => {
+                    document.getElementById('stat-total').textContent = stats.total;
+                    document.getElementById('stat-alta').textContent = stats.byUrgency.alta;
+                    document.getElementById('stat-pendiente').textContent = stats.byExecution.pendiente;
+                    document.getElementById('stat-completada').textContent = stats.byExecution.completada;
+                });
+        }
+        
+        function renderTable() {
+            const tbody = document.getElementById('incidents-tbody');
+            tbody.innerHTML = filteredIncidents.map(incident => {
+                const date = new Date(incident.date).toLocaleDateString('es-ES') + ' ' + new Date(incident.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                return `
+                    <tr>
+                        <td>#${incident.id}</td>
+                        <td>${date}</td>
+                        <td><img src="${incident.photo}" style="width: 40px; height: 40px; cursor: pointer; border-radius: 4px; object-fit: cover;" onclick="showPhoto('${incident.photo}')"></td>
+                        <td class="editable" onclick="startEditField(${incident.id}, 'observations')" title="Click para editar">${incident.observations || '(sin descripción)'}</td>
+                        <td class="editable" onclick="startEditField(${incident.id}, 'urgency')" title="Click para editar">
+                            <span class="urgency-badge urgency-${incident.urgency}">${incident.urgency}</span>
+                        </td>
+                        <td class="editable" onclick="startEditField(${incident.id}, 'execution')" title="Click para editar">
+                            <span class="execution-badge execution-${incident.execution}">${incident.execution}</span>
+                        </td>
+                        <td class="editable" onclick="startEditField(${incident.id}, 'location')" title="Click para editar"><small>📍 ${incident.latitude.toFixed(4)}<br>${incident.longitude.toFixed(4)}</small></td>
+                        <td>
+                            <button style="padding: 4px 8px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;" onclick="deleteIncident(${incident.id})">🗑️ Eliminar</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function filterData() {
+            const search = document.getElementById('search').value.toLowerCase();
+            const urgency = document.getElementById('filter-urgency').value;
+            const execution = document.getElementById('filter-execution').value;
+            
+            filteredIncidents = allIncidents.filter(i => {
+                const matchSearch = !search || i.observations.toLowerCase().includes(search);
+                const matchUrgency = !urgency || i.urgency === urgency;
+                const matchExecution = !execution || i.execution === execution;
+                return matchSearch && matchUrgency && matchExecution;
+            });
+            
+            renderTable();
+            updateMap();
+        }
+        
+        function showPhoto(photoSrc) {
+            document.getElementById('modalPhoto').src = photoSrc;
+            document.getElementById('photoModal').classList.add('active');
+        }
+        
+        function closePhotoModal() {
+            document.getElementById('photoModal').classList.remove('active');
+        }
+        
+        function startEditField(id, field) {
+            const incident = allIncidents.find(i => i.id === id);
+            if (!incident) return;
+            
+            currentEditId = id;
+            
+            // Si es ubicación, abrir modal de ubicación
+            if (field === 'location') {
+                document.getElementById('locationLatitude').value = incident.latitude;
+                document.getElementById('locationLongitude').value = incident.longitude;
+                document.getElementById('locationModal').classList.add('active');
+            } else {
+                // Si no, abrir modal de edición completa
+                document.getElementById('editObservations').value = incident.observations || '';
+                document.getElementById('editUrgency').value = incident.urgency;
+                document.getElementById('editExecution').value = incident.execution;
+                document.getElementById('editModal').classList.add('active');
+            }
+        }
+        
+        function closeLocationModal() {
+            document.getElementById('locationModal').classList.remove('active');
+            currentEditId = null;
+        }
+        
+        function saveLocationEdit() {
+            if (!currentEditId) return;
+            
+            const lat = parseFloat(document.getElementById('locationLatitude').value);
+            const lng = parseFloat(document.getElementById('locationLongitude').value);
+            
+            if (isNaN(lat) || isNaN(lng)) {
+                showAlert('Latitud y Longitud deben ser números válidos', 'error');
+                return;
+            }
+            
+            const updates = {
+                latitude: lat,
+                longitude: lng
+            };
+            
+            fetch(`${API_BASE}/incidents/${currentEditId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            })
+            .then(r => r.json())
+            .then(() => {
+                loadData();
+                closeLocationModal();
+                showAlert('✓ Ubicación actualizada correctamente');
+            })
+            .catch(err => showAlert('Error: ' + err.message, 'error'));
+        }
+        
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            currentEditId = null;
+        }
+        
+        function saveEdit() {
+            if (!currentEditId) return;
+            
+            const updates = {
+                observations: document.getElementById('editObservations').value,
+                urgency: document.getElementById('editUrgency').value,
+                execution: document.getElementById('editExecution').value
+            };
+            
+            fetch(`${API_BASE}/incidents/${currentEditId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            })
+            .then(r => r.json())
+            .then(() => {
+                loadData();
+                closeEditModal();
+                showAlert('✓ Incidencia actualizada correctamente');
+            })
+            .catch(err => showAlert('Error: ' + err.message, 'error'));
+        }
+        
+        function deleteIncident(id) {
+            if (!confirm('¿Eliminar esta incidencia?')) return;
+            
+            fetch(`${API_BASE}/incidents/${id}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(() => {
+                    loadData();
+                    showAlert('✓ Incidencia eliminada');
+                })
+                .catch(err => showAlert('Error: ' + err.message, 'error'));
+        }
+        
+        function initMap() {
+            map = L.map('map').setView([42.8125, -1.6458], 7);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19
+            }).addTo(map);
+        }
+        
+        function updateMap() {
+            if (!map) return;
+            
+            Object.values(markers).forEach(marker => map.removeLayer(marker));
+            markers = {};
+            
+            const urgencyColors = { baja: 'green', media: 'orange', alta: 'red' };
+            
+            filteredIncidents.forEach(incident => {
+                const color = urgencyColors[incident.urgency];
+                const marker = L.circleMarker([incident.latitude, incident.longitude], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillOpacity: 0.7
+                });
+                
+                marker.bindPopup(`
+                    <strong>#${incident.id}</strong><br>
+                    ${incident.observations}<br>
+                    <strong>Urgencia:</strong> ${incident.urgency}<br>
+                    <strong>Estado:</strong> ${incident.execution}<br>
+                    <img src="${incident.photo}" style="width: 100px; margin-top: 8px; border-radius: 4px;">
+                `);
+                
+                marker.addTo(map);
+                markers[incident.id] = marker;
+            });
+            
+            if (filteredIncidents.length > 0) {
+                const bounds = L.latLngBounds(filteredIncidents.map(i => [i.latitude, i.longitude]));
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+        
+        function switchView(view) {
+            document.getElementById('table-view').style.display = view === 'table' ? 'block' : 'none';
+            document.getElementById('map-view').style.display = view === 'map' ? 'block' : 'none';
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (view === 'map' && map) {
+                setTimeout(() => map.invalidateSize(), 100);
+            }
+        }
+        
+        function exportBackupServer() {
+            const backup = {
+                fecha: new Date().toISOString(),
+                cantidad: allIncidents.length,
+                incidencias: allIncidents
+            };
+            
+            const json = JSON.stringify(backup, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `backup-incidencias-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showAlert(`✓ Backup descargado: ${allIncidents.length} incidencias`);
+        }
+        
+        function loadBackupServer() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const backup = JSON.parse(event.target.result);
+                        const incidencias = backup.incidencias || backup;
+                        
+                        if (!Array.isArray(incidencias)) {
+                            throw new Error('Formato inválido');
+                        }
+                        
+                        // Cargar en servidor
+                        const promises = incidencias.map(incident => {
+                            return fetch(`${API_BASE}/incidents`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(incident)
+                            });
+                        });
+                        
+                        Promise.all(promises).then(() => {
+                            loadData();
+                            showAlert(`✓ ${incidencias.length} incidencias cargadas del backup`);
+                        }).catch(err => {
+                            showAlert('Error: ' + err.message, 'error');
+                        });
+                    } catch (err) {
+                        showAlert('Error: Archivo inválido - ' + err.message, 'error');
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+        
+        function exportCSV() {
+            fetch(`${API_BASE}/export/csv`)
+                .then(r => r.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'incidencias.csv';
+                    a.click();
+                    showAlert('✓ CSV descargado');
+                });
+        }
+        
+        function exportPDF() {
+            const element = document.getElementById('table-container');
+            const opt = {
+                margin: 10,
+                filename: 'incidencias.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { orientation: 'landscape', unit: 'mm', format: 'a4' }
+            };
+            html2pdf().set(opt).from(element).save();
+            showAlert('✓ PDF generado');
+        }
+        
+        function refreshData() {
+            loadData();
+            showAlert('✓ Datos actualizados');
+        }
+    </script>
+</body>
+</html>
