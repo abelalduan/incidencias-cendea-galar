@@ -96,7 +96,6 @@
     <div class="tabs">
         <div class="tab active" onclick="switchTab('capture')">Capturar</div>
         <div class="tab" onclick="switchTab('dashboard')">Mis reportes <span class="tab-count" id="dashboardCount">(0)</span></div>
-        <div class="tab" onclick="switchTab('backup')">⬇️ Backup</div>
     </div>
     
     <div id="sync-bar" style="background: #fff3cd; padding: 8px 12px; text-align: center; font-size: 12px; border-bottom: 1px solid #ffc107;">
@@ -170,6 +169,16 @@
         <!-- DASHBOARD -->
         <div id="dashboard" style="display: none;">
             <div id="alert-dashboard" class="alert" style="display: none;"></div>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 1rem; padding: 0 1rem;">
+                <button onclick="exportBackup()" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px;">
+                    💾 Backup
+                </button>
+                <button onclick="clearAppCache()" style="flex: 1; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px;">
+                    🗑️ Limpiar
+                </button>
+            </div>
+            
             <div id="incidents-list"></div>
         </div>
     </div>
@@ -509,5 +518,26 @@
             
             showAlert(`✓ Backup descargado: ${incidents.length} incidencias`, 'success', 'capture');
         };
+    }
+    
+    // Función para limpiar caché
+    function clearAppCache() {
+        if (confirm('⚠️ ¿Estás seguro? Se borrarán los datos locales pero los sincronizados quedarán en el servidor.')) {
+            // Limpiar IndexedDB
+            indexedDB.deleteDatabase('IncidenciasDB');
+            
+            // Limpiar localStorage
+            localStorage.clear();
+            
+            // Limpiar Service Worker cache si existe
+            if ('caches' in window) {
+                caches.keys().then(cacheNames => {
+                    cacheNames.forEach(cacheName => caches.delete(cacheName));
+                });
+            }
+            
+            showAlert('✓ Caché limpiado. Recargando...', 'success', 'dashboard');
+            setTimeout(() => location.reload(), 1000);
+        }
     }
     </script>
