@@ -332,6 +332,7 @@
                         <td class="editable" onclick="startEditField(${incident.id}, 'location')" title="Click para editar"><small>📍 ${incident.latitude.toFixed(4)}<br>${incident.longitude.toFixed(4)}</small></td>
                         <td>
                             <button style="padding: 4px 8px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px;" onclick="openMaps(${incident.latitude}, ${incident.longitude})">🗺️ Llegar</button>
+                            <button style="padding: 4px 8px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px;" onclick="shareIncidentWeb(${incident.id})">📤 Compartir</button>
                             <button style="padding: 4px 8px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;" onclick="deleteIncident(${incident.id})">🗑️ Eliminar</button>
                         </td>
                     </tr>
@@ -367,6 +368,33 @@
         function openMaps(lat, lng) {
             const url = `https://maps.google.com/?q=${lat},${lng}`;
             window.open(url, '_blank');
+        }
+        
+        function shareIncidentWeb(id) {
+            const incident = allIncidents.find(i => i.id === id);
+            if (!incident) return;
+            
+            const urgencyLabels = { baja: 'Baja', media: 'Media', alta: 'Alta' };
+            const executionLabels = { pendiente: 'Pendiente', en_progreso: 'En progreso', completada: 'Completada', rechazada: 'Rechazada' };
+            
+            const text = `📋 Incidencia #${incident.id}
+📍 Ubicación: ${incident.latitude.toFixed(4)}, ${incident.longitude.toFixed(4)}
+🗺️ https://maps.google.com/?q=${incident.latitude},${incident.longitude}
+📝 Descripción: ${incident.observations || 'Sin descripción'}
+⚠️ Urgencia: ${urgencyLabels[incident.urgency]}
+✅ Estado: ${executionLabels[incident.execution]}`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: `Incidencia #${incident.id}`,
+                    text: text
+                }).catch(err => console.error('Error compartir:', err));
+            } else {
+                // Alternativa: copiar al portapapeles
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('✓ Incidencia copiada al portapapeles');
+                });
+            }
         }
         
         function startEditField(id, field) {
