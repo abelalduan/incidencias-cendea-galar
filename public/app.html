@@ -333,16 +333,20 @@
     }
     
     function syncIncident(incident) {
+        console.log('🔄 Intentando sincronizar:', incident);
+        
         fetch(`${API_BASE}/incidents`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(incident)
         })
         .then(r => {
-            if (!r.ok) throw new Error(`Error ${r.status}`);
+            console.log('Respuesta status:', r.status);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.json();
         })
         .then(serverIncident => {
+            console.log('✓ Sincronizado en servidor:', serverIncident);
             if (incident.localId) {
                 const transaction = db.transaction(['incidents'], 'readwrite');
                 const store = transaction.objectStore('incidents');
@@ -356,11 +360,11 @@
                     updateSyncStatus();
                 };
             }
-            showAlert('✓ Sincronizado con servidor', 'success', 'dashboard');
+            showAlert('✓ Sincronizado correctamente', 'success', 'dashboard');
         })
         .catch(err => {
-            console.error('Sync error:', err);
-            showAlert('⚠️ Error al sincronizar: ' + err.message, 'warning', 'dashboard');
+            console.error('❌ Error sincronización:', err);
+            showAlert('❌ Error al sincronizar: ' + err.message, 'error', 'dashboard');
             updateSyncStatus();
         });
     }
