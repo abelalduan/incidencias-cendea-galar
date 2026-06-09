@@ -96,6 +96,7 @@
     <div class="tabs">
         <div class="tab active" onclick="switchTab('capture')">Capturar</div>
         <div class="tab" onclick="switchTab('dashboard')">Mis reportes <span class="tab-count" id="dashboardCount">(0)</span></div>
+        <div class="tab" onclick="switchTab('backup')">⬇️ Backup</div>
     </div>
     
     <div id="sync-bar" style="background: #fff3cd; padding: 8px 12px; text-align: center; font-size: 12px; border-bottom: 1px solid #ffc107;">
@@ -478,3 +479,35 @@
 </script>
 </body>
 </html>
+
+    <script>
+    // Función de exportar backup
+    function exportBackup() {
+        const transaction = db.transaction(['incidents'], 'readonly');
+        const store = transaction.objectStore('incidents');
+        const request = store.getAll();
+        
+        request.onsuccess = () => {
+            const incidents = request.result;
+            const backup = {
+                fecha: new Date().toISOString(),
+                cantidad: incidents.length,
+                incidencias: incidents
+            };
+            
+            const json = JSON.stringify(backup, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `backup-incidencias-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showAlert(`✓ Backup descargado: ${incidents.length} incidencias`, 'success', 'capture');
+        };
+    }
+    </script>
