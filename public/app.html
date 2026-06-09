@@ -88,8 +88,13 @@
 <body>
 <div class="app">
     <header>
-        <h1>📋 Incidencias</h1>
-        <p>Inspección de campo</p>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <img src="escudo-logo.webp" alt="Cendea de Galar" style="width: 45px; height: 45px;">
+            <div>
+                <h1>Incidencias Cendea</h1>
+                <p>Inspección de campo</p>
+            </div>
+        </div>
         <div class="sync-status offline" id="syncStatus">Offline</div>
     </header>
     
@@ -114,7 +119,7 @@
                     <div class="photo-button" onclick="document.getElementById('photo-input').click()">
                         📷 Tomar foto o seleccionar
                     </div>
-                    <input type="file" id="photo-input" accept="image/*" capture="environment" onchange="handlePhotoChange(event)">
+                    <input type="file" id="photo-input" accept="image/*" onchange="handlePhotoChange(event)">
                     <img id="photo-preview" class="photo-preview" style="display: none;">
                 </div>
                 
@@ -173,6 +178,9 @@
             <div style="display: flex; gap: 10px; margin-bottom: 1rem; padding: 0 1rem;">
                 <button onclick="exportBackup()" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px;">
                     💾 Backup
+                </button>
+                <button onclick="loadBackup()" style="flex: 1; padding: 10px; background: #0066cc; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px;">
+                    📂 Cargar
                 </button>
                 <button onclick="clearAppCache()" style="flex: 1; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px;">
                     🗑️ Limpiar
@@ -539,5 +547,52 @@
             showAlert('✓ Caché limpiado. Recargando...', 'success', 'dashboard');
             setTimeout(() => location.reload(), 1000);
         }
+    }
+    
+    // Función para cargar backup
+    function loadBackup() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const backup = JSON.parse(event.target.result);
+                    const incidencias = backup.incidencias || backup;
+                    
+                    if (!Array.isArray(incidencias)) {
+                        throw new Error('Formato inválido');
+                    }
+                    
+                    // Cargar en IndexedDB
+                    const transaction = db.transaction(['incidents'], 'readwrite');
+                    const store = transaction.objectStore('incidents');
+                    
+                    incidencias.forEach(incident => {
+                        store.put(incident);
+                    });
+                    
+                    transaction.oncomplete = () => {
+                        loadIncidents();
+                        showAlert(`✓ ${incidencias.length} incidencias cargadas del backup`, 'success', 'dashboard');
+                    };
+                    
+                    transaction.onerror = () => {
+                        showAlert('Error al cargar backup', 'error', 'dashboard');
+                    };
+                } catch (err) {
+                    showAlert('Error: Archivo inválido - ' + err.message, 'error', 'dashboard');
+                }
+            };
+            
+            reader.readAsText(file);
+        };
+        
+        input.click();
     }
     </script>
