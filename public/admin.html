@@ -263,7 +263,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <script>
-        const API_BASE = 'http://localhost:5000/api';
+        const API_BASE = window.location.origin + '/api';
         let allIncidents = [];
         let filteredIncidents = [];
         let map = null;
