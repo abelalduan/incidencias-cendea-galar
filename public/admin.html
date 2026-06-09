@@ -150,6 +150,8 @@
             <div class="btn-group">
                 <button class="secondary" onclick="exportCSV()">📥 CSV</button>
                 <button class="secondary" onclick="exportPDF()">📄 PDF</button>
+                <button class="secondary" onclick="exportBackupServer()">💾 Backup</button>
+                <button class="secondary" onclick="loadBackupServer()">📂 Cargar</button>
                 <button onclick="refreshData()">🔄 Actualizar</button>
             </div>
         </div>
@@ -261,7 +263,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <script>
-        const API_BASE = window.location.origin + '/api';
+        const API_BASE = 'http://localhost:5000/api';
         let allIncidents = [];
         let filteredIncidents = [];
         let map = null;
@@ -510,6 +512,73 @@
             if (view === 'map' && map) {
                 setTimeout(() => map.invalidateSize(), 100);
             }
+        }
+        
+        function exportBackupServer() {
+            const backup = {
+                fecha: new Date().toISOString(),
+                cantidad: allIncidents.length,
+                incidencias: allIncidents
+            };
+            
+            const json = JSON.stringify(backup, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `backup-incidencias-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showAlert(`✓ Backup descargado: ${allIncidents.length} incidencias`);
+        }
+        
+        function loadBackupServer() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const backup = JSON.parse(event.target.result);
+                        const incidencias = backup.incidencias || backup;
+                        
+                        if (!Array.isArray(incidencias)) {
+                            throw new Error('Formato inválido');
+                        }
+                        
+                        // Cargar en servidor
+                        const promises = incidencias.map(incident => {
+                            return fetch(`${API_BASE}/incidents`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(incident)
+                            });
+                        });
+                        
+                        Promise.all(promises).then(() => {
+                            loadData();
+                            showAlert(`✓ ${incidencias.length} incidencias cargadas del backup`);
+                        }).catch(err => {
+                            showAlert('Error: ' + err.message, 'error');
+                        });
+                    } catch (err) {
+                        showAlert('Error: Archivo inválido - ' + err.message, 'error');
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
         }
         
         function exportCSV() {
