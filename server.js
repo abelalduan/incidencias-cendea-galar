@@ -1,223 +1,154 @@
 const express = require('express');
 const cors = require('cors');
-const multer = require('multer');
+const mongoose = require('mongoose');
 const path = require('path');
-const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware CORS mejorado
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
+// Middleware
+app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Simular base de datos en memoria (cambiar por MongoDB en producción)
-let incidents = [];
-let nextId = 1;
+// MongoDB Connection String (con contraseña URL-encoded)
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb+srv://abelalduan_db_user:%40Renovara2026@cluster0.jqriigt.mongodb.net/incidencias?retryWrites=true&w=majority';
 
-// Cargar datos al iniciar
-function loadData() {
-  try {
-    if (fs.existsSync('incidents.json')) {
-      const data = fs.readFileSync('incidents.json', 'utf8');
-      incidents = JSON.parse(data);
-      nextId = Math.max(...incidents.map(i => i.id), 0) + 1;
+// Conectar a MongoDB
+mongoose.connect(MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+.then(() => console.log('✓ Conectado a MongoDB'))
+.catch(err => console.error('✗ Error MongoDB:', err));
+
+// Schema de incidencia
+const incidentSchema = new mongoose.Schema({
+    id: { type: Number, unique: true, required: true },
+    photo: String,
+    latitude: { type: Number, required: true },
+    longitude: { type: Number, required: true },
+    observations: String,
+    urgency: { type: String, enum: ['baja', 'media', 'alta'], default: 'media' },
+    execution: { type: String, enum: ['pendiente', 'en_progreso', 'completada', 'rechazada'], default: 'pendiente' },
+    synced: { type: Boolean, default: true },
+    createdAt: { type: Date, default: Date.now }
+});
+
+const Incident = mongoose.model('Incident', incidentSchema);
+
+// Rutas API
+
+// GET: obtener todas las incidencias
+app.get('/api/incidents', async (req, res) => {
+    try {
+        const incidents = await Incident.find().sort({ createdAt: -1 });
+        res.json(incidents);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-  } catch (e) {
-    console.log('No previous data found, starting fresh');
-  }
-}
-
-// Guardar datos
-function saveData() {
-  fs.writeFileSync('incidents.json', JSON.stringify(incidents, null, 2));
-}
-
-// Cargar datos al iniciar
-loadData();
-
-// ===== ENDPOINTS DE LA API =====
-
-// GET: Obtener todas las incidencias
-app.get('/api/incidents', (req, res) => {
-  const { urgency, execution, search } = req.query;
-  let filtered = [...incidents];
-  
-  if (urgency) filtered = filtered.filter(i => i.urgency === urgency);
-  if (execution) filtered = filtered.filter(i => i.execution === execution);
-  if (search) {
-    filtered = filtered.filter(i => 
-      i.observations.toLowerCase().includes(search.toLowerCase())
-    );
-  }
-  
-  res.json(filtered.sort((a, b) => new Date(b.date) - new Date(a.date)));
 });
 
-// GET: Obtener una incidencia específica
-app.get('/api/incidents/:id', (req, res) => {
-  const incident = incidents.find(i => i.id === parseInt(req.params.id));
-  if (!incident) return res.status(404).json({ error: 'Incidencia no encontrada' });
-  res.json(incident);
-});
+// POST: crear nueva incidencia
+app.post('/api/incidents', async (req, res) => {
+    try {
+        const lastIncident = await Incident.findOne().sort({ id: -1 });
+        const newId = (lastIncident?.id || 0) + 1;
 
-// POST: Crear nueva incidencia
-app.post('/api/incidents', (req, res) => {
-  const { photo, latitude, longitude, observations, urgency, execution } = req.body;
-  
-  if (!photo || !latitude || !longitude || !urgency || !execution) {
-    return res.status(400).json({ error: 'Faltan campos requeridos' });
-  }
-  
-  const incident = {
-    id: nextId++,
-    date: new Date().toISOString(),
-    photo,
-    latitude: parseFloat(latitude),
-    longitude: parseFloat(longitude),
-    observations,
-    urgency,
-    execution,
-    synced: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  
-  incidents.push(incident);
-  saveData();
-  res.status(201).json(incident);
-});
+        const incident = new Incident({
+            id: newId,
+            ...req.body,
+            synced: true
+        });
 
-// PUT: Actualizar incidencia
-app.put('/api/incidents/:id', (req, res) => {
-  const incident = incidents.find(i => i.id === parseInt(req.params.id));
-  if (!incident) return res.status(404).json({ error: 'Incidencia no encontrada' });
-  
-  const { observations, urgency, execution } = req.body;
-  if (observations !== undefined) incident.observations = observations;
-  if (urgency !== undefined) incident.urgency = urgency;
-  if (execution !== undefined) incident.execution = execution;
-  incident.updatedAt = new Date().toISOString();
-  
-  saveData();
-  res.json(incident);
-});
-
-// DELETE: Eliminar incidencia
-app.delete('/api/incidents/:id', (req, res) => {
-  const index = incidents.findIndex(i => i.id === parseInt(req.params.id));
-  if (index === -1) return res.status(404).json({ error: 'Incidencia no encontrada' });
-  
-  const deleted = incidents.splice(index, 1);
-  saveData();
-  res.json(deleted[0]);
-});
-
-// GET: Estadísticas
-app.get('/api/stats', (req, res) => {
-  const stats = {
-    total: incidents.length,
-    byUrgency: {
-      baja: incidents.filter(i => i.urgency === 'baja').length,
-      media: incidents.filter(i => i.urgency === 'media').length,
-      alta: incidents.filter(i => i.urgency === 'alta').length
-    },
-    byExecution: {
-      pendiente: incidents.filter(i => i.execution === 'pendiente').length,
-      en_progreso: incidents.filter(i => i.execution === 'en_progreso').length,
-      completada: incidents.filter(i => i.execution === 'completada').length,
-      rechazada: incidents.filter(i => i.execution === 'rechazada').length
+        await incident.save();
+        res.status(201).json(incident);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
     }
-  };
-  res.json(stats);
 });
 
-// GET: Datos para CSV
-app.get('/api/export/csv', (req, res) => {
-  const headers = ['ID', 'Fecha', 'Urgencia', 'Estado', 'Observaciones', 'Latitud', 'Longitud'];
-  const rows = incidents.map(i => [
-    i.id,
-    new Date(i.date).toLocaleString('es-ES'),
-    i.urgency,
-    i.execution,
-    `"${i.observations.replace(/"/g, '""')}"`,
-    i.latitude,
-    i.longitude
-  ]);
-  
-  const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
-  res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', 'attachment; filename=incidencias.csv');
-  res.send(csv);
+// PUT: actualizar incidencia
+app.put('/api/incidents/:id', async (req, res) => {
+    try {
+        const incident = await Incident.findByIdAndUpdate(
+            req.params.id,
+            { ...req.body, synced: true },
+            { new: true }
+        );
+        res.json(incident);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-// GET: Datos para geolocalización (JSON)
-app.get('/api/export/locations', (req, res) => {
-  const locations = incidents.map(i => ({
-    id: i.id,
-    lat: i.latitude,
-    lng: i.longitude,
-    urgency: i.urgency,
-    execution: i.execution,
-    observations: i.observations,
-    date: i.date
-  }));
-  res.json(locations);
+// DELETE: eliminar incidencia
+app.delete('/api/incidents/:id', async (req, res) => {
+    try {
+        await Incident.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-// Health check
+// GET: estadísticas
+app.get('/api/stats', async (req, res) => {
+    try {
+        const total = await Incident.countDocuments();
+        const byUrgency = await Incident.aggregate([
+            { $group: { _id: '$urgency', count: { $sum: 1 } } }
+        ]);
+        const byExecution = await Incident.aggregate([
+            { $group: { _id: '$execution', count: { $sum: 1 } } }
+        ]);
+
+        res.json({ total, byUrgency, byExecution });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET: exportar CSV
+app.get('/api/export/csv', async (req, res) => {
+    try {
+        const incidents = await Incident.find().sort({ createdAt: -1 });
+        
+        const headers = 'ID,Fecha,Ubicación (Lat),Ubicación (Lng),Descripción,Urgencia,Estado\n';
+        const rows = incidents.map(inc => 
+            `${inc.id},"${new Date(inc.createdAt).toLocaleString('es-ES')}",${inc.latitude},${inc.longitude},"${inc.observations || ''}",${inc.urgency},${inc.execution}`
+        ).join('\n');
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="incidencias.csv"');
+        res.send(headers + rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET: health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString(), incidentsCount: incidents.length });
+    res.json({ status: 'OK', timestamp: new Date() });
 });
 
-// Servir archivos estáticos
-app.use(express.static('public'));
-
-// Rutas específicas para HTML
-app.get('/', (req, res) => {
-  res.send(`
-    <html>
-      <head>
-        <title>Sistema de Incidencias</title>
-        <style>
-          body { font-family: Arial; padding: 2rem; background: #f5f5f5; }
-          .container { max-width: 600px; margin: 0 auto; background: white; padding: 2rem; border-radius: 8px; }
-          h1 { color: #185FA5; }
-          a { display: inline-block; margin: 10px 0; padding: 10px 20px; background: #185FA5; color: white; text-decoration: none; border-radius: 6px; cursor: pointer; }
-          a:hover { background: #0C447C; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>✅ Sistema de Incidencias</h1>
-          <p>Selecciona dónde quieres ir:</p>
-          <a href="/app">📱 App Móvil (Inspectores)</a>
-          <a href="/admin">📊 Dashboard (Administrador)</a>
-        </div>
-      </body>
-    </html>
-  `);
-});
-
+// Rutas HTML
 app.get('/app', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'app.html'));
+    res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/', (req, res) => {
+    res.redirect('/admin');
 });
 
 // Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`\n🚀 Servidor de incidencias corriendo en http://localhost:${PORT}`);
-  console.log(`📱 App Móvil: http://localhost:${PORT}/app`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}/admin`);
-  console.log(`📡 API: http://localhost:${PORT}/api\n`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✓ Servidor escuchando en puerto ${PORT}`);
+    console.log(`📱 App móvil: http://localhost:${PORT}/app`);
+    console.log(`📊 Dashboard: http://localhost:${PORT}/admin`);
 });
