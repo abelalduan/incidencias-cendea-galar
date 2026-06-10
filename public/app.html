@@ -199,9 +199,7 @@
 
 <script>
     // Service Worker para offline
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('data:application/javascript,self.addEventListener("install",e=>self.skipWaiting());self.addEventListener("activate",e=>self.clients.claim());');
-    }
+    // Service Worker disabled - causing issues with data: URLs
     
     const API_BASE = window.location.origin + '/api';
     let db;
