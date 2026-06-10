@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: incidencias-cendea-galar
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    envVars:
+      - key: MONGODB_URI
+        value: mongodb+srv://abelalduan_db_user:%40Renovara2026@cluster0.jqriigt.mongodb.net/incidencias?retryWrites=true&w=majority
